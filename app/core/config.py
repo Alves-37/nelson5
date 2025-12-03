@@ -3,8 +3,8 @@ import os
 
 class Settings(BaseSettings):
     # Default to Railway internal/public URLs; can be overridden por .env ou variáveis de ambiente
-    DATABASE_URL: str = "postgresql://postgres:SewgLWaPipGKIRlLZlUmJcCsogfxkziX@postgres.railway.internal:5432/railway"
-    DATABASE_PUBLIC_URL: str | None = "postgresql://postgres:SewgLWaPipGKIRlLZlUmJcCsogfxkziX@mainline.proxy.rlwy.net:15908/railway"
+    DATABASE_URL: str = "postgresql://postgres:aUWNNUZgmYQjnbmQvnfdEzjGiJctoCHl@postgres.railway.internal:5432/railway"
+    DATABASE_PUBLIC_URL: str | None = "postgresql://postgres:aUWNNUZgmYQjnbmQvnfdEzjGiJctoCHl@caboose.proxy.rlwy.net:11646/railway"
     JWT_SECRET: str = "a_very_secret_key_that_should_be_changed"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60

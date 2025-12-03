@@ -44,7 +44,7 @@ async def run():
 
     # Fallback final: usar DATABASE_PUBLIC_URL da Railway, se nada mais estiver definido
     if not db_url:
-        db_url = "postgresql://postgres:eGToQQQrasBZetMsloLDrKdPMvtYctNv@centerbeam.proxy.rlwy.net:10079/railway"
+        db_url = "postgresql://postgres:aUWNNUZgmYQjnbmQvnfdEzjGiJctoCHl@caboose.proxy.rlwy.net:11646/railway"
 
     if not db_url:
         raise RuntimeError("DATABASE_URL não definida e nenhum fallback configurado")
