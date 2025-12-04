@@ -42,6 +42,7 @@ async def listar_usuarios(db: AsyncSession = Depends(get_db_session)):
                 'salario': usuario.salario,
                 'pode_abastecer': usuario.pode_abastecer,
                 'pode_gerenciar_despesas': usuario.pode_gerenciar_despesas,
+                'pode_fazer_devolucao': getattr(usuario, 'pode_fazer_devolucao', False),
                 'created_at': usuario.created_at.isoformat(),
                 'updated_at': usuario.updated_at.isoformat()
             }
