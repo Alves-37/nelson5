@@ -258,10 +258,10 @@ async def listar_dividas(
         resposta: list[DividaOut] = []
         for divida, cli_nome in rows:
             try:
-                setattr(divida, 'cliente_nome', cli_nome)
+                out = _to_divida_out(divida, cliente_nome=cli_nome)
             except Exception:
-                setattr(divida, 'cliente_nome', None)
-            resposta.append(DividaOut.model_validate(divida))
+                out = _to_divida_out(divida, cliente_nome=None)
+            resposta.append(out)
         return resposta
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao listar dívidas: {str(e)}")
