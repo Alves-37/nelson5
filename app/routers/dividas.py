@@ -161,7 +161,7 @@ async def criar_divida(payload: DividaCreate, db: AsyncSession = Depends(get_db_
         raise HTTPException(status_code=500, detail=f"Erro ao criar dívida: {str(e)}")
 
 
-@router.get("/{divida_id}", response_model=DividaDetailOut)
+@router.get("/id/{divida_id}", response_model=DividaDetailOut)
 async def obter_divida(divida_id: str, db: AsyncSession = Depends(get_db_session)):
     try:
         divida_uuid = _parse_uuid(divida_id)
