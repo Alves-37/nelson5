@@ -37,7 +37,12 @@ async def vendas_dia(
         if _metrics_cache["vendas_dia"]["value"] is not None and (_now_ts() - _metrics_cache["vendas_dia"]["ts"]) < _cache_ttl_seconds:
             return {"data": str(alvo), "total": float(_metrics_cache["vendas_dia"]["value"]) }
 
-    stmt = select(func.coalesce(func.sum(Venda.total), 0.0)).where(
+    stmt = select(
+        func.coalesce(
+            func.sum(func.coalesce(Venda.total, 0.0) - func.coalesce(Venda.desconto, 0.0)),
+            0.0,
+        )
+    ).where(
         Venda.cancelada == False,
         func.date(Venda.created_at) == alvo
     )
@@ -82,7 +87,12 @@ async def vendas_mes(
             1
         )
         # Intervalo [primeiro_dia, proximo_mes)
-        stmt = select(func.coalesce(func.sum(Venda.total), 0.0)).where(
+        stmt = select(
+            func.coalesce(
+                func.sum(func.coalesce(Venda.total, 0.0) - func.coalesce(Venda.desconto, 0.0)),
+                0.0,
+            )
+        ).where(
             Venda.cancelada == False,
             Venda.created_at >= primeiro_dia,
             Venda.created_at < proximo_mes
