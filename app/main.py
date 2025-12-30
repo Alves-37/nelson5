@@ -2,13 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import select, func, text
+import uuid
 from app.routers import health, produtos, usuarios, clientes, vendas, auth, categorias, ws
 from app.routers import metricas, relatorios, empresa_config, admin, dividas
 from app.routers import abastecimentos
 from app.db.session import engine, AsyncSessionLocal
 from app.db.base import DeclarativeBase
-from app.db.models import User
+from app.db.models import User, Produto
 from app.core.security import get_password_hash
+
+SERVICO_IMPRESSAO_UUID = "157c293f-5995-4a83-9d2a-e02f811dd5f4"
+SERVICO_IMPRESSAO_CODIGO = "SERVICO_IMPRESSAO"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -84,6 +88,43 @@ async def lifespan(app: FastAPI):
                 )
                 session.add(user)
                 await session.commit()
+
+            # Garantir produto interno SERVICO_IMPRESSAO (uuid fixo para sync do PDV3)
+            try:
+                pid = uuid.UUID(SERVICO_IMPRESSAO_UUID)
+                res_prod = await session.execute(select(Produto).where(Produto.id == pid))
+                prod = res_prod.scalar_one_or_none()
+                if not prod:
+                    # Se existir por código com UUID diferente, não criamos (código é unique)
+                    res_codigo = await session.execute(select(Produto).where(Produto.codigo == SERVICO_IMPRESSAO_CODIGO))
+                    prod_by_code = res_codigo.scalar_one_or_none()
+                    if prod_by_code:
+                        print(
+                            f"[SEED] Aviso: já existe produto codigo={SERVICO_IMPRESSAO_CODIGO} mas id={prod_by_code.id}. "
+                            f"Esperado id={SERVICO_IMPRESSAO_UUID}. Seed não aplicado."
+                        )
+                    else:
+                        session.add(
+                            Produto(
+                                id=pid,
+                                codigo=SERVICO_IMPRESSAO_CODIGO,
+                                nome="Serviço de Impressão",
+                                descricao="Serviço de impressão e cópias",
+                                preco_custo=0.0,
+                                preco_venda=0.0,
+                                estoque=0.0,
+                                estoque_minimo=0.0,
+                                categoria_id=None,
+                                venda_por_peso=False,
+                                unidade_medida="serv",
+                                taxa_iva=0.0,
+                                ativo=True,
+                            )
+                        )
+                        await session.commit()
+                        print(f"[SEED] Produto SERVICO_IMPRESSAO criado com id={SERVICO_IMPRESSAO_UUID}")
+            except Exception as seed_e:
+                print(f"[SEED] Falha ao garantir SERVICO_IMPRESSAO: {seed_e}")
     except Exception as e:
         print(f"Erro ao conectar com o banco: {e}")
         # Continue mesmo com erro de banco para permitir healthcheck
