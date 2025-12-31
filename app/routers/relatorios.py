@@ -26,16 +26,39 @@ router = APIRouter(prefix="/api/relatorios", tags=["relatorios"])
 LOGO_PATH = Path(__file__).resolve().parents[2] / "img" / "nelson.jpg"
 
 
+async def _get_singleton_empresa_config(db: AsyncSession) -> EmpresaConfig:
+    """Retorna a configuração única da empresa, criando se não existir."""
+    result = await db.execute(select(EmpresaConfig))
+    cfg = result.scalars().first()
+    if cfg is None:
+        cfg = EmpresaConfig()
+        db.add(cfg)
+        await db.commit()
+        await db.refresh(cfg)
+    return cfg
+
+
 def _add_header(story, styles, titulo: str, subtitulo: str | None = None, empresa: EmpresaConfig | None = None):
     """Adiciona cabeçalho padrão com logo + dados da empresa + título/subtítulo."""
-    # Logo (se existir)
-    if LOGO_PATH.exists():
+    # Logo (preferir configurada na empresa; fallback para a padrão)
+    logo_candidates: List[Path] = []
+    try:
+        if empresa is not None and getattr(empresa, "logo_path", None):
+            p = Path(str(empresa.logo_path)).expanduser()
+            logo_candidates.append(p)
+    except Exception:
+        pass
+    logo_candidates.append(LOGO_PATH)
+
+    for logo_path in logo_candidates:
         try:
-            logo = Image(str(LOGO_PATH), width=25 * mm, height=25 * mm)
-            story.append(logo)
-            story.append(Spacer(1, 4))
+            if logo_path and Path(logo_path).exists():
+                logo = Image(str(logo_path), width=28 * mm, height=28 * mm)
+                story.append(logo)
+                story.append(Spacer(1, 4))
+                break
         except Exception:
-            pass
+            continue
 
     # Dados da empresa
     if empresa is not None:
@@ -131,8 +154,7 @@ async def relatorio_produtos(baixo_estoque: bool = False, db: AsyncSession = Dep
         produtos = [p for p in produtos if is_baixo(p)]
 
     # Buscar dados da empresa
-    cfg_result = await db.execute(select(EmpresaConfig))
-    empresa = cfg_result.scalars().first()
+    empresa = await _get_singleton_empresa_config(db)
 
     titulo = "Produtos" if not baixo_estoque else "Produtos com baixo estoque"
     pdf_bytes = _build_produtos_pdf(produtos, titulo, empresa=empresa)
@@ -192,8 +214,7 @@ async def relatorio_vendas(
     story = []
 
     # Dados da empresa
-    cfg_result = await db.execute(select(EmpresaConfig))
-    empresa = cfg_result.scalars().first()
+    empresa = await _get_singleton_empresa_config(db)
 
     titulo = "Relatório de Vendas"
     subtitulo = f"Período: {data_inicio} a {data_fim}"
@@ -346,26 +367,111 @@ async def relatorio_financeiro(
     subtitulo = f"Período: {data_inicio} a {data_fim}"
     _add_header(story, styles, titulo, subtitulo, empresa=empresa)
 
-    rows = [
-        ["Faturamento", f"MT {faturamento:,.2f}"],
-        ["Custo", f"MT {custo_total:,.2f}"],
-        ["Lucro", f"MT {lucro:,.2f}"],
-        ["Qtd. vendas", str(qtd_vendas)],
-        ["Ticket médio", f"MT {ticket_medio:,.2f}"],
-        ["Itens vendidos", f"{itens_total:,.2f}"],
-    ]
+    try:
+        emitido_em = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+        story.append(Paragraph(f"Emitido em: {emitido_em}", styles["Normal"]))
+        story.append(Spacer(1, 10))
+    except Exception:
+        story.append(Spacer(1, 10))
 
-    table = Table(rows, colWidths=[80 * mm, 80 * mm])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f766e")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 0), 10),
+    resumo_top = [
+        ["Faturamento", f"MT {faturamento:,.2f}", "Custo", f"MT {custo_total:,.2f}"],
+        ["Lucro", f"MT {lucro:,.2f}", "Ticket médio", f"MT {ticket_medio:,.2f}"],
+    ]
+    table_top = Table(resumo_top, colWidths=[35 * mm, 45 * mm, 35 * mm, 45 * mm])
+    table_top.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#dcfce7")),
+        ("BACKGROUND", (2, 0), (2, 0), colors.HexColor("#fee2e2")),
+        ("BACKGROUND", (0, 1), (0, 1), colors.HexColor("#dbeafe")),
+        ("BACKGROUND", (2, 1), (2, 1), colors.HexColor("#f3e8ff")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
 
-    story.append(table)
+    story.append(table_top)
+    story.append(Spacer(1, 10))
+
+    resumo_bottom = [
+        ["Qtd. vendas", str(qtd_vendas), "Itens vendidos", f"{itens_total:,.2f}"],
+    ]
+    table_bottom = Table(resumo_bottom, colWidths=[35 * mm, 45 * mm, 35 * mm, 45 * mm])
+    table_bottom.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(table_bottom)
+
+    # Tabela detalhada (por venda)
+    try:
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("Detalhe de vendas", styles["Heading3"]))
+        story.append(Spacer(1, 6))
+
+        linhas = [["Data/Hora", "Venda", "Pagamento", "Total", "Custo", "Lucro"]]
+        for v in vendas:
+            v_total = 0.0
+            v_custo = 0.0
+            for it in getattr(v, "itens", []) or []:
+                preco_unit = float(it.preco_unitario or 0)
+                qtd = float(it.peso_kg or 0) if getattr(it, "peso_kg", 0) else float(it.quantidade or 0)
+                try:
+                    custo_unit_item = float(getattr(it, 'preco_custo_unitario', 0) or 0)
+                except Exception:
+                    custo_unit_item = 0.0
+                custo_unit_prod = float(custo_por_produto.get(str(it.produto_id), 0))
+                custo_unit = custo_unit_item if custo_unit_item > 1e-9 else custo_unit_prod
+                v_total += preco_unit * qtd
+                v_custo += custo_unit * qtd
+            v_lucro = v_total - v_custo
+
+            try:
+                data_str = v.created_at.strftime("%Y-%m-%d %H:%M") if getattr(v, "created_at", None) else ""
+            except Exception:
+                data_str = ""
+            venda_id_str = str(getattr(v, "id", ""))
+            pagamento_str = str(getattr(v, "forma_pagamento", "") or "")
+            linhas.append([
+                data_str,
+                venda_id_str,
+                pagamento_str,
+                f"MT {v_total:,.2f}",
+                f"MT {v_custo:,.2f}",
+                f"MT {v_lucro:,.2f}",
+            ])
+
+        tbl = Table(linhas, repeatRows=1, colWidths=[30 * mm, 14 * mm, 28 * mm, 28 * mm, 28 * mm, 28 * mm])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f766e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 9),
+            ("FONTSIZE", (0, 1), (-1, -1), 8),
+            ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.HexColor("#ffffff"), colors.HexColor("#f8fafc")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(tbl)
+    except Exception:
+        pass
+
     doc.build(story)
     pdf_bytes = buffer.getvalue()
     buffer.close()
