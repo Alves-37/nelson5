@@ -38,7 +38,7 @@ async def run():
     if SETTINGS_OK and getattr(settings, 'DATABASE_URL', None):
         db_url = settings.DATABASE_URL
     else:
-        db_url = os.getenv("DATABASE_URL", "")
+        db_url = os.getenv("DATABASE_PUBLIC_URL") or os.getenv("DATABASE_URL", "")
         if not db_url:
             raise RuntimeError("DATABASE_URL não definido e não foi possível importar app.core.config.settings")
 

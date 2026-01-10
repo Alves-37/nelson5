@@ -33,7 +33,7 @@ async def run():
         raise FileNotFoundError(f"Arquivo SQL não encontrado: {SQL_FILE}")
 
     # Tentar usar o mesmo esquema de URL do backend
-    db_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL") or ""
+    db_url = os.getenv("DATABASE_PUBLIC_URL") or os.getenv("DATABASE_URL") or ""
     if not db_url:
         # fallback: tentar SETTINGS do app, se disponível
         try:

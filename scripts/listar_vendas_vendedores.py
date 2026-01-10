@@ -31,7 +31,7 @@ from dotenv import load_dotenv
 # Carregar variáveis de ambiente
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
+DATABASE_URL = os.getenv("DATABASE_PUBLIC_URL") or os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     print("❌ Nenhuma variável de conexão encontrada (.env/ambiente)")
     print("   - Defina DATABASE_PUBLIC_URL ou DATABASE_URL")

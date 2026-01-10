@@ -11,9 +11,9 @@ load_dotenv()
 
 async def drop_all_tables():
     """Drop all tables in the PostgreSQL database."""
-    database_url = os.getenv("DATABASE_URL")
+    database_url = os.getenv("DATABASE_PUBLIC_URL") or os.getenv("DATABASE_URL")
     if not database_url:
-        print("ERROR: DATABASE_URL not found in environment variables")
+        print("ERROR: DATABASE_PUBLIC_URL/DATABASE_URL not found in environment variables")
         return
     
     # Convert SQLAlchemy URL format to asyncpg format

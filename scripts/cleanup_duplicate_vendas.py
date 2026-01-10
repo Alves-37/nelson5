@@ -9,7 +9,7 @@ import psycopg2.extras
 
 
 def get_db_url():
-    url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_PUBLIC_URL")
+    url = os.getenv("DATABASE_PUBLIC_URL") or os.getenv("DATABASE_URL")
     if not url:
         # tentar carregar de .env em locais padrão
         candidates = [
