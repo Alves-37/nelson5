@@ -7,6 +7,7 @@ from app.routers import health, produtos, usuarios, clientes, vendas, auth, cate
 from app.routers import metricas, relatorios, empresa_config, admin, dividas
 from app.routers import abastecimentos
 from app.routers import pdv_sync
+from app.routers import impressoras
 from app.db.session import engine, AsyncSessionLocal
 from app.db.base import DeclarativeBase
 from app.db.models import User, Produto
@@ -43,6 +44,36 @@ async def lifespan(app: FastAPI):
                 ))
             except Exception as mig_itens_e:
                 print(f"Aviso: migração leve de 'itens_venda.preco_custo_unitario' falhou: {mig_itens_e}")
+
+            # Migração leve: campos de impressão/cópias por item
+            try:
+                await conn.execute(text(
+                    "CREATE TABLE IF NOT EXISTS impressoras ("
+                    "id UUID PRIMARY KEY DEFAULT gen_random_uuid(), "
+                    "created_at TIMESTAMPTZ DEFAULT NOW(), "
+                    "updated_at TIMESTAMPTZ DEFAULT NOW(), "
+                    "numero_serie VARCHAR(100) UNIQUE NOT NULL, "
+                    "marca VARCHAR(100), "
+                    "modelo VARCHAR(100), "
+                    "ativa BOOLEAN DEFAULT TRUE"
+                    ")"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE itens_venda ADD COLUMN IF NOT EXISTS impressora_id UUID"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE itens_venda ADD COLUMN IF NOT EXISTS copias INTEGER DEFAULT 0"
+                ))
+                await conn.execute(text(
+                    "DO $$ BEGIN "
+                    "IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_itens_venda_impressora') THEN "
+                    "ALTER TABLE itens_venda ADD CONSTRAINT fk_itens_venda_impressora FOREIGN KEY (impressora_id) REFERENCES impressoras(id); "
+                    "END IF; END $$;"
+                ))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_impressoras_numero_serie ON impressoras(numero_serie)"))
+                await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_itens_venda_impressora ON itens_venda(impressora_id)"))
+            except Exception as mig_imp_e:
+                print(f"Aviso: migração leve de impressoras/itens_venda.impressora_id/copies falhou: {mig_imp_e}")
 
             # Migração leve para a tabela 'abastecimentos'
             try:
@@ -180,6 +211,7 @@ app.include_router(admin.router)
 app.include_router(dividas.router)
 app.include_router(abastecimentos.router)
 app.include_router(pdv_sync.router)
+app.include_router(impressoras.router)
 
 @app.get("/")
 async def read_root():

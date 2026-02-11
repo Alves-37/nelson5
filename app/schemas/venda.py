@@ -21,6 +21,10 @@ class ItemVendaBase(BaseModel):
     base_iva: Optional[float] = Field(0.0, ge=0)
     valor_iva: Optional[float] = Field(0.0, ge=0)
 
+    # Impressão / copiadoras (opcional)
+    impressora_id: Optional[str] = None
+    copias: Optional[int] = Field(0, ge=0)
+
     model_config = _MODEL_CONFIG_IGNORE_EXTRA
 
 class ItemVendaCreate(ItemVendaBase):

@@ -25,6 +25,15 @@ class User(DeclarativeBase):
     pode_fazer_devolucao: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class Impressora(DeclarativeBase):
+    __tablename__ = "impressoras"
+
+    numero_serie: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    marca: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    modelo: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ativa: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Produto(DeclarativeBase):
     __tablename__ = "produtos"
 
@@ -86,10 +95,15 @@ class ItemVenda(DeclarativeBase):
     taxa_iva: Mapped[float] = mapped_column(Float, default=0.0)
     base_iva: Mapped[float] = mapped_column(Float, default=0.0)
     valor_iva: Mapped[float] = mapped_column(Float, default=0.0)
+
+    # Impressão / copiadoras
+    impressora_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("impressoras.id"), nullable=True)
+    copias: Mapped[int] = mapped_column(Integer, default=0)
     
     # Relacionamentos
     venda: Mapped["Venda"] = relationship("Venda", back_populates="itens")
     produto: Mapped["Produto"] = relationship("Produto")
+    impressora: Mapped[Optional["Impressora"]] = relationship("Impressora")
 
 
 class EmpresaConfig(DeclarativeBase):

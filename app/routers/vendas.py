@@ -190,6 +190,21 @@ async def criar_venda(venda: VendaCreate, db: AsyncSession = Depends(get_db_sess
                     base_iva=base_iva,
                     valor_iva=valor_iva,
                 )
+
+                # Campos de impressão/cópias (opcional)
+                try:
+                    imp_id_raw = getattr(item_data, 'impressora_id', None)
+                    if imp_id_raw:
+                        try:
+                            item.impressora_id = uuid.UUID(str(imp_id_raw))
+                        except Exception:
+                            item.impressora_id = None
+                    try:
+                        item.copias = int(getattr(item_data, 'copias', 0) or 0)
+                    except Exception:
+                        item.copias = 0
+                except Exception:
+                    pass
                 db.add(item)
 
                 # Baixar estoque no servidor
