@@ -1,10 +1,10 @@
-from sqlalchemy import Column, String, Boolean, Integer, Float, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Boolean, Integer, Float, Text, DateTime, ForeignKey, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.dialects.postgresql import JSONB
 from app.db.base import DeclarativeBase
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 import uuid
 
@@ -190,6 +190,28 @@ class Abastecimento(DeclarativeBase):
     observacao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     produto: Mapped["Produto"] = relationship("Produto")
+    usuario: Mapped[Optional["User"]] = relationship("User")
+
+
+class CategoriaDespesa(DeclarativeBase):
+    __tablename__ = "categorias_despesa"
+
+    nome: Mapped[str] = mapped_column(String(120), unique=True, index=True, nullable=False)
+
+
+class DespesaRecorrente(DeclarativeBase):
+    __tablename__ = "despesas_recorrentes"
+
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)
+    categoria: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    descricao: Mapped[str] = mapped_column(String(500), nullable=False)
+    valor: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="Pago")
+    data_pagamento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    data_vencimento: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    usuario_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True, index=True)
+    fechada: Mapped[bool] = mapped_column(Boolean, default=False)
+
     usuario: Mapped[Optional["User"]] = relationship("User")
 
 

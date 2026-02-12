@@ -8,9 +8,10 @@ from app.routers import metricas, relatorios, empresa_config, admin, dividas
 from app.routers import abastecimentos
 from app.routers import pdv_sync
 from app.routers import impressoras
+from app.routers import despesas
 from app.db.session import engine, AsyncSessionLocal
 from app.db.base import DeclarativeBase
-from app.db.models import User, Produto
+from app.db.models import User, Produto, CategoriaDespesa
 from app.core.security import get_password_hash
 
 SERVICO_IMPRESSAO_UUID = "157c293f-5995-4a83-9d2a-e02f811dd5f4"
@@ -129,6 +130,30 @@ async def lifespan(app: FastAPI):
                 session.add(user)
                 await session.commit()
 
+            try:
+                categorias_padrao = [
+                    "Aluguel",
+                    "Água",
+                    "Luz",
+                    "Internet",
+                    "Salários",
+                    "Manutenção",
+                    "Outros",
+                    "Transporte",
+                ]
+                for nome in categorias_padrao:
+                    res_cat = await session.execute(
+                        select(CategoriaDespesa).where(
+                            func.lower(CategoriaDespesa.nome) == func.lower(nome)
+                        )
+                    )
+                    existing = res_cat.scalar_one_or_none()
+                    if not existing:
+                        session.add(CategoriaDespesa(nome=nome))
+                await session.commit()
+            except Exception as seed_cat_e:
+                print(f"[SEED] Falha ao garantir categorias_despesa padrão: {seed_cat_e}")
+
             # Garantir produto interno SERVICO_IMPRESSAO (uuid fixo para sync do PDV3)
             try:
                 pid = uuid.UUID(SERVICO_IMPRESSAO_UUID)
@@ -212,6 +237,7 @@ app.include_router(dividas.router)
 app.include_router(abastecimentos.router)
 app.include_router(pdv_sync.router)
 app.include_router(impressoras.router)
+app.include_router(despesas.router)
 
 @app.get("/")
 async def read_root():
